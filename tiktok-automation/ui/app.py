@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, sys, json, requests, pathlib
+import os, sys, json, requests, pathlib, time
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
     QStackedWidget, QPushButton, QLabel, QComboBox, QTextEdit, QFileDialog, QCheckBox, QGroupBox,
@@ -53,10 +53,15 @@ class OverviewPage(QWidget):
         self.refresh.clicked.connect(self.load_devices)
         self.open_scrcpy.clicked.connect(self.open_scrcpy_clicked)
         self.close_scrcpy.clicked.connect(lambda: SCRCPY.stop())
-        btn_warm.clicked.connect(self.enqueue_warm)
+        btn_warm.clicked.connect(self.toggle_warmup)
+
+        # Track last warmup job id and progress
+        self._warmup_job_id = None
+        self._warmup_start_ms = None
+        self._warmup_target_s = None
 
         self.load_devices()
-        self.t=QTimer(self); self.t.timeout.connect(self.pull_logs); self.t.start(1200); self.pull_logs()
+        self.t=QTimer(self); self.t.timeout.connect(self._tick); self.t.start(1000); self.pull_logs()
 
     def curdev(self):
         t=self.device.currentText().strip(); return t or None
@@ -75,6 +80,25 @@ class OverviewPage(QWidget):
             if r.status_code==200: self.logs.setPlainText(r.text)
         except Exception: pass
 
+    def _tick(self):
+        # logs refresh (less often)
+        self.pull_logs()
+        # warmup progress indicator
+        if self._warmup_job_id and self._warmup_target_s and self._warmup_start_ms:
+            elapsed = int(time.time()*1000) - self._warmup_start_ms
+            pct = max(0, min(100, int((elapsed/1000) / self._warmup_target_s * 100)))
+            self.open_scrcpy.setText(f"Open scrcpy ({pct}%)")
+            # check if job finished
+            try:
+                rr = requests.get(f"{API}/jobs/{self._warmup_job_id}", timeout=5)
+                if rr.status_code==200:
+                    st = rr.json().get("status")
+                    if st in ("done","failed","cancelled"):
+                        self._warmup_job_id=None; self._warmup_start_ms=None; self._warmup_target_s=None
+                        self.open_scrcpy.setText("Open scrcpy")
+            except Exception:
+                pass
+
     def open_scrcpy_clicked(self):
         d=self.curdev()
         if not d: QMessageBox.warning(self,"scrcpy","Select device"); return
@@ -82,13 +106,32 @@ class OverviewPage(QWidget):
                           window_title=f"scrcpy - {d}", always_on_top=True)
         except Exception as e: QMessageBox.warning(self,"scrcpy",str(e))
 
-    def enqueue_warm(self):
+    def toggle_warmup(self):
         d=self.curdev()
-        if not d: toast(self,"Select a device first"); return
+        if not d:
+            toast(self,"Select a device first"); return
+        # If a warmup is running, request cancel
+        if self._warmup_job_id:
+            try:
+                requests.post(f"{API}/jobs/{self._warmup_job_id}/cancel", timeout=5)
+                self._warmup_job_id=None; self._warmup_start_ms=None; self._warmup_target_s=None
+                toast(self, "Warmup cancel requested")
+            except Exception as e:
+                QMessageBox.warning(self,"Cancel",str(e))
+            return
         secs=int(self.warm_secs.value())
-        r=requests.post(f"{API}/enqueue/warmup",json={"device_serial":d,"seconds":secs})
-        if r.status_code==200: toast(self, f"Warmup enqueued: {r.json()}")
-        else: QMessageBox.warning(self,"Error",f"{r.status_code}: {r.text}")
+        try:
+            r=requests.post(f"{API}/enqueue/warmup",json={"device_serial":d,"seconds":secs}, timeout=10)
+            if r.status_code==200:
+                jid = r.json().get("job_id")
+                self._warmup_job_id = jid
+                self._warmup_start_ms = int(time.time()*1000)
+                self._warmup_target_s = secs
+                toast(self, f"Warmup enqueued: #{jid}")
+            else:
+                QMessageBox.warning(self,"Error",f"{r.status_code}: {r.text}")
+        except Exception as e:
+            QMessageBox.warning(self,"Error",str(e))
 
 class QuickRunPage(QWidget):
     def __init__(self, parent=None):
