@@ -13,14 +13,11 @@ def _make_should_continue(jid: int) -> Callable[[], bool]:
     Treats statuses other than running/queued as stop signals (cancelled/paused/failed/done)."""
     def _inner() -> bool:
         try:
-            rr = requests.get(f"{API}/jobs", params={"device": DEVICE}, timeout=5)
+            rr = requests.get(f"{API}/jobs/{jid}", timeout=5)
             if rr.status_code != 200:
                 return True
-            for row in rr.json():
-                if row.get("id") == jid:
-                    return row.get("status") in ("running", "queued")
-            # If job not found in recent list, default to continue to avoid false negatives
-            return True
+            row = rr.json()
+            return row.get("status") in ("running", "queued")
         except Exception:
             return True
     return _inner
