@@ -1,0 +1,28 @@
+2025-08-10 02:34:56.827 | INFO     | core.device_runner:__init__:20 - Connecting to ZY22BWZPB2
+2025-08-10 02:34:56.827 | INFO     | interfaces.ui2:connect:6 - UI2 connecting: ZY22BWZPB2
+2025-08-10 02:34:59.161 | INFO     | __main__:run:34 - Worker starting for device ZY22BWZPB2
+2025-08-10 02:35:17.597 | INFO     | __main__:run:45 - Running job 1 type=warmup
+2025-08-10 02:35:19.173 | INFO     | core.device_runner:start_tiktok:50 - Starting TikTok package com.zhiliaoapp.musically
+2025-08-10 02:35:21.554 | INFO     | core.state_machine:warmup:15 - Warmup start 120s, like_prob=0.07
+2025-08-10 02:37:00.516 | INFO     | core.state_machine:warmup:19 - Warmup interrupted by cancel/pause
+2025-08-10 02:47:09.104 | INFO     | core.device_runner:__init__:20 - Connecting to ZY22BWZPB2
+2025-08-10 02:47:09.105 | INFO     | interfaces.ui2:connect:6 - UI2 connecting: ZY22BWZPB2
+2025-08-10 02:47:10.630 | INFO     | __main__:run:34 - Worker starting for device ZY22BWZPB2
+2025-08-10 02:57:11.072 | INFO     | core.device_runner:__init__:20 - Connecting to ZY22BWZPB2
+2025-08-10 02:57:11.073 | INFO     | interfaces.ui2:connect:6 - UI2 connecting: ZY22BWZPB2
+2025-08-10 02:57:11.990 | INFO     | __main__:run:34 - Worker starting for device ZY22BWZPB2
+2025-08-10 03:03:32.809 | INFO     | core.device_runner:__init__:20 - Connecting to ZY22BWZPB2
+2025-08-10 03:03:32.809 | INFO     | interfaces.ui2:connect:6 - UI2 connecting: ZY22BWZPB2
+2025-08-10 03:03:33.840 | INFO     | __main__:run:34 - Worker starting for device ZY22BWZPB2
+2025-08-10 03:04:44.228 | INFO     | core.device_runner:__init__:20 - Connecting to ZY22BWZPB2
+2025-08-10 03:04:44.229 | INFO     | interfaces.ui2:connect:6 - UI2 connecting: ZY22BWZPB2
+2025-08-10 03:04:45.181 | INFO     | __main__:run:34 - Worker starting for device ZY22BWZPB2
+2025-08-10 03:08:13.108 | INFO     | core.device_runner:__init__:20 - Connecting to ZY22BWZPB2
+2025-08-10 03:08:13.109 | INFO     | interfaces.ui2:connect:6 - UI2 connecting: ZY22BWZPB2
+2025-08-10 03:08:14.107 | INFO     | __main__:run:34 - Worker starting for device ZY22BWZPB2
+2025-08-10 03:08:57.988 | INFO     | __main__:run:45 - Running job 3 type=warmup
+2025-08-10 03:08:59.532 | INFO     | core.device_runner:start_tiktok:50 - Starting TikTok package com.zhiliaoapp.musically
+2025-08-10 03:09:01.973 | INFO     | core.state_machine:warmup:15 - Warmup start 120s, like_prob=0.07
+2025-08-10 03:14:57.898 | INFO     | core.device_runner:__init__:21 - Connecting to ZY22BWZPB2
+2025-08-10 03:14:57.899 | INFO     | interfaces.ui2:connect:6 - UI2 connecting: ZY22BWZPB2
+2025-08-10 03:14:59.484 | INFO     | __main__:run:34 - Worker starting for device ZY22BWZPB2
