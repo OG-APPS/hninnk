@@ -5,6 +5,7 @@ from loguru import logger
 from interfaces.ui2 import connect
 from core.state_machine import StateMachine
 from core.blockers import BlockerResolver
+from core.permissions import Permissions
 
 TIKTOK_PACKAGES = [
     "com.zhiliaoapp.musically",
@@ -23,6 +24,7 @@ class DeviceRunner:
         self.sm = StateMachine(serial, self.d)
         self.pkg: Optional[str] = None
         self.blockers = BlockerResolver(serial, self.d)
+        self.perm = Permissions(self.d)
 
     def wake_and_unlock(self):
         try:
@@ -57,6 +59,8 @@ class DeviceRunner:
         time.sleep(2.0)
         # resolve blockers after launch
         try: self.blockers.resolve(1.0)
+        except Exception: pass
+        try: self.perm.dismiss_popups(1.0)
         except Exception: pass
 
     def warmup(self, seconds: int = 60, like_prob: float = 0.07, should_continue: Optional[Callable[[], bool]] = None) -> bool:
