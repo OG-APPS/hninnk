@@ -119,7 +119,8 @@ def get_runs(device: Optional[str] = None, job_id: Optional[int] = None):
 @app.post("/enqueue/warmup")
 def post_enqueue_warmup(req: EnqueueWarmup):
     payload = {"seconds": req.seconds, "like_prob": req.like_prob}
-    return {"job_id": enqueue_job(req.device_serial, "warmup", payload)}
+    jid = enqueue_job(req.device_serial, "warmup", payload)
+    return {"job_id": jid}
 
 @app.post("/enqueue/pipeline")
 def post_enqueue_pipeline(req: EnqueuePipeline):
