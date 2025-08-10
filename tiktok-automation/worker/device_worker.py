@@ -1,3 +1,18 @@
+"""Worker loop for executing jobs on a single connected device.
+
+The module polls the orchestrator API for the next job assigned to the
+current device, runs the job via :class:`~core.device_runner.DeviceRunner`,
+and posts completion status back to the server.  It expects two environment
+variables at startup:
+
+``API_URL``
+    Base URL of the orchestrator service (default ``http://127.0.0.1:8000``).
+``DEVICE_SERIAL``
+    Android device serial to target.
+
+Running the module directly will start the worker loop and block forever.
+"""
+
 from __future__ import annotations
 import time, requests, os, json
 from typing import Callable
@@ -22,7 +37,15 @@ def _make_should_continue(jid: int) -> Callable[[], bool]:
             return True
     return _inner
 
-def run():
+def run() -> None:
+    """Entry point for the worker loop.
+
+    The loop continuously polls ``/jobs/next`` for work, executes the returned
+    job, and reports completion.  It blocks forever until an unhandled
+    exception or process termination.  Logging is configured via
+    :func:`utils.logger_setup.setup_logger`.
+    """
+
     setup_logger("worker")
     if not DEVICE:
         logger.error("DEVICE_SERIAL not set")

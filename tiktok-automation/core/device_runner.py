@@ -1,3 +1,10 @@
+"""High level control of an Android device running TikTok.
+
+The :class:`DeviceRunner` encapsulates connection setup, warm-up cycles,
+pipeline execution and basic posting functionality.  It exposes a minimal
+API that higher level components such as the worker loop can call.
+"""
+
 from __future__ import annotations
 import time, random, subprocess, os
 from typing import Dict, Any, List, Optional, Callable
@@ -14,10 +21,13 @@ TIKTOK_PACKAGES = [
 ]
 
 def _adb(*args: str) -> int:
+    """Invoke an adb command and return its exit code."""
     return subprocess.call(list(args), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 
 class DeviceRunner:
     def __init__(self, serial: str):
+        """Connect to ``serial`` and prepare helpers."""
         self.serial = serial
         logger.info(f"Connecting to {serial}")
         self.d = connect(serial)
@@ -26,7 +36,8 @@ class DeviceRunner:
         self.blockers = BlockerResolver(serial, self.d)
         self.perm = Permissions(self.d)
 
-    def wake_and_unlock(self):
+    def wake_and_unlock(self) -> None:
+        """Ensure the device screen is on and unlocked."""
         try:
             if not self.d.screen_on():
                 self.d.screen_on(); time.sleep(0.8)
@@ -40,6 +51,7 @@ class DeviceRunner:
                 logger.warning(f"Unlock fallback failed: {e}")
 
     def _resolve_pkg(self) -> str:
+        """Return the installed TikTok package name for this device."""
         for p in TIKTOK_PACKAGES:
             try:
                 if self.d.app_info(p):
@@ -48,7 +60,8 @@ class DeviceRunner:
                 pass
         return TIKTOK_PACKAGES[0]
 
-    def start_tiktok(self):
+    def start_tiktok(self) -> None:
+        """Launch the TikTok app and resolve initial popups."""
         if not self.pkg:
             self.pkg = self._resolve_pkg()
         logger.info(f"Starting TikTok package {self.pkg}")
@@ -63,23 +76,52 @@ class DeviceRunner:
         try: self.perm.dismiss_popups(1.0)
         except Exception: pass
 
-    def warmup(self, seconds: int = 60, like_prob: float = 0.07, should_continue: Optional[Callable[[], bool]] = None) -> bool:
+    def warmup(
+        self,
+        seconds: int = 60,
+        like_prob: float = 0.07,
+        should_continue: Optional[Callable[[], bool]] = None,
+    ) -> bool:
+        """Run a warm-up loop on the feed.
+
+        Parameters
+        ----------
+        seconds:
+            Total duration to run.
+        like_prob:
+            Probability per video to perform a like action.
+        should_continue:
+            Optional callback checked periodically to cancel early.
+        """
+
         self.wake_and_unlock(); self.start_tiktok()
-        t0=time.time()
-        # periodic blocker resolve
-        def _hook():
-            try: self.blockers.resolve(0.5)
-            except Exception: pass
+        def _hook() -> None:
+            try:
+                self.blockers.resolve(0.5)
+            except Exception:
+                pass
         ok = self.sm.warmup(seconds=seconds, like_prob=like_prob, should_continue=should_continue)
         _hook()
         return ok
 
-    def post_video(self, video_path: str, caption: str = "", should_continue: Optional[Callable[[], bool]] = None) -> bool:
+    def post_video(
+        self,
+        video_path: str,
+        caption: str = "",
+        should_continue: Optional[Callable[[], bool]] = None,
+    ) -> bool:
+        """Upload and post a video from ``video_path``.
+
+        The method performs a best-effort sequence of pushes and UI taps.  It
+        returns ``True`` if the upload flow was initiated without obvious
+        errors.  Failure to find expected UI elements is silently ignored but
+        logged.
+        """
+
         logger.info(f"Posting video: {video_path} (caption len={len(caption)})")
         if not os.path.exists(video_path):
             logger.error(f"Video not found: {video_path}")
             return False
-        # Best-effort flow: push, open upload, pick, caption, post
         dst = "/sdcard/Movies/ta_upload.mp4"
         try:
             subprocess.run(["adb","-s",self.serial,"push", video_path, dst], check=False)
@@ -88,41 +130,60 @@ class DeviceRunner:
             return False
 
         self.wake_and_unlock(); self.start_tiktok()
-        try: self.blockers.resolve(1.0)
-        except Exception: pass
+        try:
+            self.blockers.resolve(1.0)
+        except Exception:
+            pass
         if should_continue and not should_continue():
             logger.info("Cancelled before upload flow")
             return False
 
         # Tap '+' area
         try:
-            self.d.click(0.50, 0.92); time.sleep(1.6)
-        except Exception: pass
-        try: self.blockers.resolve(0.8)
-        except Exception: pass
+            self.d.click(0.50, 0.92)
+            time.sleep(1.6)
+        except Exception:
+            pass
+        try:
+            self.blockers.resolve(0.8)
+        except Exception:
+            pass
 
         # Try 'Upload' or similar
-        for txt in ("Upload","Post","Upload video","Next"):
+        for txt in ("Upload", "Post", "Upload video", "Next"):
             try:
                 if self.d(text=txt).exists:
-                    self.d(text=txt).click(); time.sleep(1.2); break
-            except Exception: pass
+                    self.d(text=txt).click()
+                    time.sleep(1.2)
+                    break
+            except Exception:
+                pass
 
-        if should_continue and not should_continue(): return False
+        if should_continue and not should_continue():
+            return False
 
         # Pick first grid item
-        try: self.d.click(0.15, 0.25); time.sleep(0.8)
-        except Exception: pass
+        try:
+            self.d.click(0.15, 0.25)
+            time.sleep(0.8)
+        except Exception:
+            pass
 
-        for txt in ("Next","Done","Confirm"):
+        for txt in ("Next", "Done", "Confirm"):
             try:
                 if self.d(text=txt).exists:
-                    self.d(text=txt).click(); time.sleep(1.0); break
-            except Exception: pass
-        try: self.blockers.resolve(0.8)
-        except Exception: pass
+                    self.d(text=txt).click()
+                    time.sleep(1.0)
+                    break
+            except Exception:
+                pass
+        try:
+            self.blockers.resolve(0.8)
+        except Exception:
+            pass
 
-        if should_continue and not should_continue(): return False
+        if should_continue and not should_continue():
+            return False
 
         # Caption field attempts
         try:
@@ -132,7 +193,8 @@ class DeviceRunner:
             elif self.d(textContains="Add caption").exists:
                 el = self.d(textContains="Add caption")
             if el:
-                el.click(); time.sleep(0.6)
+                el.click()
+                time.sleep(0.6)
                 try:
                     self.d.set_fastinput_ime(True)
                 except Exception:
@@ -143,49 +205,69 @@ class DeviceRunner:
                     pass
         except Exception:
             try:
-                self.d.click(0.5, 0.3); time.sleep(0.4)
+                self.d.click(0.5, 0.3)
+                time.sleep(0.4)
                 self.d.send_keys(caption)
-            except Exception: pass
+            except Exception:
+                pass
 
         # Post / Publish
-        for txt in ("Post","Publish","Share"):
+        for txt in ("Post", "Publish", "Share"):
             try:
                 if self.d(text=txt).exists:
-                    self.d(text=txt).click(); time.sleep(2.0); break
-            except Exception: pass
+                    self.d(text=txt).click()
+                    time.sleep(2.0)
+                    break
+            except Exception:
+                pass
         try:
             self.d.click(0.90, 0.93)
-        except Exception: pass
+        except Exception:
+            pass
         time.sleep(2.0)
         return True
 
-    def run_pipeline(self, payload: Dict[str, Any], should_continue: Optional[Callable[[], bool]] = None) -> bool:
+    def run_pipeline(
+        self,
+        payload: Dict[str, Any],
+        should_continue: Optional[Callable[[], bool]] = None,
+    ) -> bool:
+        """Execute a sequence of steps defined in ``payload``.
+
+        The payload schema roughly matches what the orchestrator sends and
+        consists of a ``steps`` list with entries such as ``{"type": "warmup"}``
+        or ``{"type": "post_video"}``.  The ``should_continue`` callback can
+        abort execution between steps.
+        """
+
         steps: List[Dict[str, Any]] = payload.get("steps", [])
         repeat = int(payload.get("repeat", 1))
         lo, hi = payload.get("sleep_between", [2,5])
-        ok=True
+        ok = True
         for _ in range(repeat):
             for st in steps:
                 if should_continue and not should_continue():
                     logger.info("Pipeline interrupted")
                     return False
                 t = st.get("type")
-                if t=="warmup":
-                    dur = int(st.get("duration",60))
+                if t == "warmup":
+                    dur = int(st.get("duration", 60))
                     likep = float(st.get("like_prob", 0.07))
                     ok = self.warmup(dur, likep, should_continue) and ok
-                elif t=="break":
-                    dur = int(st.get("duration",60))
+                elif t == "break":
+                    dur = int(st.get("duration", 60))
                     for _i in range(dur):
                         if should_continue and not should_continue():
                             return False
                         time.sleep(1)
-                elif t=="post_video":
-                    vp = st.get("video",""); cap = st.get("caption","")
+                elif t == "post_video":
+                    vp = st.get("video", "")
+                    cap = st.get("caption", "")
                     ok = self.post_video(vp, cap, should_continue) and ok
-                elif t=="rotate_identity":
-                    logger.info("Rotate identity (soft): clear + restart app"); time.sleep(2.0)
+                elif t == "rotate_identity":
+                    logger.info("Rotate identity (soft): clear + restart app")
+                    time.sleep(2.0)
                 else:
                     logger.warning(f"Unknown step: {t}")
-                time.sleep(random.uniform(lo,hi))
+                time.sleep(random.uniform(lo, hi))
         return ok
